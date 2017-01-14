@@ -1738,10 +1738,13 @@ int platform_get_sample_rate(void *platform __unused, uint32_t *rate __unused)
 
 int platform_set_voice_volume(void *platform, int volume)
 {
+    int base_value = 84;
     struct platform_data *my_data = (struct platform_data *)platform;
     struct audio_device *adev = my_data->adev;
     struct mixer_ctl *ctl;
-    const char *mixer_ctl_name = "Voice Rx Gain";
+    struct mixer_ctl *ctl_speaker;
+    const char *mixer_ctl_name = "RX0 Digital Volume";
+    const char *mixer_ctl_name_speaker = "RX7 Digital Volume";
     int vol_index = 0, ret = 0;
     uint32_t set_values[ ] = {0,
                               ALL_SESSION_VSID,
@@ -1752,15 +1755,21 @@ int platform_set_voice_volume(void *platform, int volume)
     // But this values don't changed in kernel. So, below change is need.
     vol_index = (int)percent_to_index(volume, MIN_VOL_INDEX, MAX_VOL_INDEX);
     set_values[0] = vol_index;
-
     ctl = mixer_get_ctl_by_name(adev->mixer, mixer_ctl_name);
+    ctl_speaker = mixer_get_ctl_by_name(adev->mixer, mixer_ctl_name_speaker);
     if (!ctl) {
         ALOGE("%s: Could not get ctl for mixer cmd - %s",
               __func__, mixer_ctl_name);
         return -EINVAL;
     }
+    if (!ctl_speaker) {
+        ALOGE("%s: Could not get ctl_speaker for mixer cmd - %s",
+              __func__, mixer_ctl_name_speaker);
+        return -EINVAL;
+    }
     ALOGV("Setting voice volume index: %d", set_values[0]);
-    mixer_ctl_set_array(ctl, set_values, ARRAY_SIZE(set_values));
+    mixer_ctl_set_value(ctl, 0, base_value + (MAX_VOL_INDEX-set_values[0])*2);
+    mixer_ctl_set_value(ctl_speaker, 0, base_value + (MAX_VOL_INDEX-set_values[0])*2);
 
     if (my_data->csd != NULL) {
         ret = my_data->csd->volume(ALL_SESSION_VSID, volume);
